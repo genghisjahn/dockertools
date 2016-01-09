@@ -22,13 +22,13 @@ func TestMain(m *testing.M) {
 	if errSetup == nil {
 		code = m.Run()
 	}
-	args := os.Args
-	for _, v := range args {
-		if v == "-persist=true" {
-			*persistDB = true
-			break
-		}
-	}
+	//args := os.Args
+	// for _, v := range args {
+	// 	if v == "-persist=true" {
+	// 		*persistDB = true
+	// 		break
+	// 	}
+	// }
 	if !*persistDB && !keepDB {
 		errShutdown := shutdown()
 		if errShutdown != nil {
