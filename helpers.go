@@ -60,7 +60,7 @@ func setupDBContainer() error {
 	dbInfo.UserName = "demo"
 	dbInfo.Password = "abcd1234"
 
-	argtemplate := "-p 5432:5432  --name %s  -e POSTGRES_PASSWORD=%s -e POSTGE_DB=%s -e POSTGRES_USER=%s -d postgres"
+	argtemplate := "-p 5432:5432  --name %s  -e POSTGRES_PASSWORD=%s -e POSTGRES_DB=%s -e POSTGRES_USER=%s -d postgres"
 	runargs := fmt.Sprintf(argtemplate, dbInfo.ContainerName, dbInfo.Password, dbInfo.DBName, dbInfo.UserName)
 	//runargs := "-p 5432:5432  --name dockerDemoDB  -e POSTGRES_PASSWORD=abcd1234 -e POSTGE_DB=dockerdemo -e POSTGRES_USER=demo -d postgres"
 	runErr := docker.Run(runargs, false)
@@ -88,7 +88,12 @@ func initData() error {
 	if err != nil {
 		return err
 	}
-	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", hostip, "FIXTHIS", "abcd1234", "FIXTHIS")
+	dbInfo.ContainerName = "dockerDemoDB"
+	dbInfo.Host = hostip
+	dbInfo.DBName = "dockerdemo"
+	dbInfo.UserName = "demo"
+	dbInfo.Password = "abcd1234"
+	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", hostip, dbInfo.UserName, dbInfo.Password, dbInfo.DBName)
 	maxAttempts := 20
 	cn, _ := sql.Open("postgres", constr)
 	defer cn.Close()
