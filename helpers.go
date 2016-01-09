@@ -35,7 +35,6 @@ func setup(name string) (bool, error) {
 		log.Printf("Container %s is already running. Started At: %s\n", name, info.State.StartedAt)
 		return true, nil
 	}
-
 	err = setupDBContainer()
 	if err != nil {
 		return false, err
@@ -50,7 +49,7 @@ func setup(name string) (bool, error) {
 var dbInfo DBInfo
 
 func setupDBContainer() error {
-	hostip, err := docker.GetHostIP("dev")
+	hostip, err := docker.GetHostIP("default")
 	if err != nil {
 		return err
 	}
@@ -85,7 +84,7 @@ func shutdown() error {
 }
 
 func initData() error {
-	hostip, err := docker.GetHostIP("dev")
+	hostip, err := docker.GetHostIP("default")
 	if err != nil {
 		return err
 	}
