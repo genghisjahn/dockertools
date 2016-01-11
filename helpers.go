@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,60 +12,65 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var machineName = "dev"
-
 type DBInfo struct {
-	ContainerName string
-	Host          string
-	DBName        string
-	UserName      string
-	Password      string
+	DockerMachine string `json:"docker_machine"`
+	ContainerName string `json:"container_name"`
+	Host          string `json:"host"`
+	DBName        string `json:"db_name"`
+	UserName      string `json:"user_name"`
+	Password      string `json:"password"`
 }
+
+var db DBInfo
 
 func getDBConn(info DBInfo) (*sql.DB, error) {
 	return sql.Open("postgres", fmt.Sprintf("host=%s user=%s dbname=%s password=%s sslmode=disable", info.Host, info.UserName, info.DBName, info.Password))
 }
 
-func setup(containerName string) (bool, error) {
+func setup() (bool, error) {
+
+	c, cErr := ioutil.ReadFile("data/connect.json")
+	if cErr != nil {
+		return false, cErr
+	}
+	jErr := json.Unmarshal(c, &db)
+	if jErr != nil {
+		return false, jErr
+	}
+
+	hostip, ipErr := docker.GetHostIP(db.DockerMachine)
+	if ipErr != nil {
+		return false, ipErr
+	}
+	db.Host = hostip
+
 	var err error
 
-	info, infoErr := docker.InspectContainer(containerName)
+	info, infoErr := docker.InspectContainer(db.ContainerName)
 	if infoErr != nil {
 		if _, ok := infoErr.(*docker.ContainerNotFoundError); !ok {
 			return false, infoErr
 		}
 	}
 	if info.State.Running {
-		log.Printf("Container %s is already running. Started At: %s\n", containerName, info.State.StartedAt)
+		log.Printf("Container %s is already running. Started At: %s\n", db.ContainerName, info.State.StartedAt)
 		return true, nil
 	}
-	err = setupDBContainer(containerName)
+	err = setupDBContainer()
 	if err != nil {
 		return false, err
 	}
-	err = initData(containerName)
+	err = initData(db)
 	if err != nil {
 		return false, err
 	}
 	return false, nil
 }
 
-var dbInfo DBInfo
-
-func setupDBContainer(containerName string) error {
-	hostip, err := docker.GetHostIP(machineName)
-	if err != nil {
-		return err
-	}
-
-	dbInfo.ContainerName = containerName
-	dbInfo.Host = hostip
-	dbInfo.DBName = "dockerdemo"
-	dbInfo.UserName = "demo"
-	dbInfo.Password = "abcd1234"
+func setupDBContainer() error {
 
 	argtemplate := "-p 5432:5432  --name %s  -e POSTGRES_PASSWORD=%s -e POSTGRES_DB=%s -e POSTGRES_USER=%s -d postgres"
-	runargs := fmt.Sprintf(argtemplate, dbInfo.ContainerName, dbInfo.Password, dbInfo.DBName, dbInfo.UserName)
+	runargs := fmt.Sprintf(argtemplate, db.ContainerName, db.Password, db.DBName, db.UserName)
 	runErr := docker.Run(runargs, false)
 	if runErr != nil {
 		return runErr
@@ -74,28 +80,26 @@ func setupDBContainer(containerName string) error {
 
 func shutdown() error {
 	var err error
-	err = docker.StopContainer(dbInfo.ContainerName, false)
+	err = docker.StopContainer(db.ContainerName, false)
 	if err != nil {
+		fmt.Println("STOP***")
 		return err
 	}
-	err = docker.RemoveContainer(dbInfo.ContainerName, false)
+	err = docker.RemoveContainer(db.ContainerName, false)
 	if err != nil {
+		fmt.Println("REmove***")
 		return err
 	}
 	return nil
 }
 
-func initData(containerName string) error {
-	hostip, err := docker.GetHostIP(machineName)
+func initData(db DBInfo) error {
+	hostip, err := docker.GetHostIP(db.DockerMachine)
 	if err != nil {
 		return err
 	}
-	dbInfo.ContainerName = containerName
-	dbInfo.Host = hostip
-	dbInfo.DBName = "dockerdemo"
-	dbInfo.UserName = "demo"
-	dbInfo.Password = "abcd1234"
-	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", hostip, dbInfo.UserName, dbInfo.Password, dbInfo.DBName)
+
+	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", hostip, db.UserName, db.Password, db.DBName)
 	maxAttempts := 20
 	cn, _ := sql.Open("postgres", constr)
 	defer cn.Close()

@@ -26,7 +26,7 @@ func TestCheckHarrisonFord(t *testing.T) {
 func TestMain(m *testing.M) {
 	persistDB := flag.Bool("persistdb", false, "True, leave the DB container running")
 	flag.Parse()
-	keepDB, errSetup := setup("DemoContainer")
+	keepDB, errSetup := setup()
 	if errSetup != nil {
 		log.Println("Setup Error:", errSetup)
 	}
@@ -34,7 +34,6 @@ func TestMain(m *testing.M) {
 	if errSetup == nil {
 		code = m.Run()
 	}
-
 	if !*persistDB && !keepDB {
 		errShutdown := shutdown()
 		if errShutdown != nil {

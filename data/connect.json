@@ -1,0 +1,8 @@
+{
+   "docker_machine":"dev",
+   "container_name":"DemoContainer",
+   "host":"pulled_from_env",
+   "db_name":"dockerdemo",
+   "user_name":"demo",
+   "password":"abcd1234"
+}
