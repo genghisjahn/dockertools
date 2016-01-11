@@ -7,14 +7,26 @@ import (
 	"testing"
 )
 
-func TestInsertRecrod(t *testing.T) {
+func TestInsertMovie(t *testing.T) {
+
+}
+
+func TestInsertActor(t *testing.T) {
+
+}
+
+func TestCheckRaiders(t *testing.T) {
+
+}
+
+func TestCheckHarrisonFord(t *testing.T) {
 
 }
 
 func TestMain(m *testing.M) {
 	persistDB := flag.Bool("persistdb", false, "True, leave the DB container running")
 	flag.Parse()
-	keepDB, errSetup := setup("DBNAME")
+	keepDB, errSetup := setup("DemoContainer")
 	if errSetup != nil {
 		log.Println("Setup Error:", errSetup)
 	}
@@ -22,13 +34,7 @@ func TestMain(m *testing.M) {
 	if errSetup == nil {
 		code = m.Run()
 	}
-	//args := os.Args
-	// for _, v := range args {
-	// 	if v == "-persist=true" {
-	// 		*persistDB = true
-	// 		break
-	// 	}
-	// }
+
 	if !*persistDB && !keepDB {
 		errShutdown := shutdown()
 		if errShutdown != nil {

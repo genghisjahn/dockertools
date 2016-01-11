@@ -3,12 +3,15 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"time"
 
 	"github.com/genghisjahn/dockertools/docker"
 	_ "github.com/lib/pq"
 )
+
+var machineName = "dev"
 
 type DBInfo struct {
 	ContainerName string
@@ -22,24 +25,24 @@ func getDBConn(info DBInfo) (*sql.DB, error) {
 	return sql.Open("postgres", fmt.Sprintf("host=%s user=%s dbname=%s password=%s sslmode=disable", info.Host, info.UserName, info.DBName, info.Password))
 }
 
-func setup(name string) (bool, error) {
+func setup(containerName string) (bool, error) {
 	var err error
 
-	info, infoErr := docker.InspectContainer(name)
+	info, infoErr := docker.InspectContainer(containerName)
 	if infoErr != nil {
 		if _, ok := infoErr.(*docker.ContainerNotFoundError); !ok {
 			return false, infoErr
 		}
 	}
 	if info.State.Running {
-		log.Printf("Container %s is already running. Started At: %s\n", name, info.State.StartedAt)
+		log.Printf("Container %s is already running. Started At: %s\n", containerName, info.State.StartedAt)
 		return true, nil
 	}
-	err = setupDBContainer()
+	err = setupDBContainer(containerName)
 	if err != nil {
 		return false, err
 	}
-	err = initData()
+	err = initData(containerName)
 	if err != nil {
 		return false, err
 	}
@@ -48,13 +51,13 @@ func setup(name string) (bool, error) {
 
 var dbInfo DBInfo
 
-func setupDBContainer() error {
-	hostip, err := docker.GetHostIP("default")
+func setupDBContainer(containerName string) error {
+	hostip, err := docker.GetHostIP(machineName)
 	if err != nil {
 		return err
 	}
 
-	dbInfo.ContainerName = "dockerDemoDB"
+	dbInfo.ContainerName = containerName
 	dbInfo.Host = hostip
 	dbInfo.DBName = "dockerdemo"
 	dbInfo.UserName = "demo"
@@ -82,12 +85,12 @@ func shutdown() error {
 	return nil
 }
 
-func initData() error {
-	hostip, err := docker.GetHostIP("default")
+func initData(containerName string) error {
+	hostip, err := docker.GetHostIP(machineName)
 	if err != nil {
 		return err
 	}
-	dbInfo.ContainerName = "dockerDemoDB"
+	dbInfo.ContainerName = containerName
 	dbInfo.Host = hostip
 	dbInfo.DBName = "dockerdemo"
 	dbInfo.UserName = "demo"
@@ -106,10 +109,22 @@ func initData() error {
 		log.Println(errPing)
 		time.Sleep(time.Duration(attempts) * time.Second)
 	}
-	_, errExec = cn.Exec("INIT DATA")
+	s, sErr := ioutil.ReadFile("data/schema.sql")
+	if sErr != nil {
+		return sErr
+	}
+	_, errExec = cn.Exec(string(s))
 	if errExec != nil {
+		fmt.Println("Schema")
 		return errExec
 	}
-	_, errExec = cn.Exec("Insert DATA")
+	d, dErr := ioutil.ReadFile("data/data.sql")
+	if dErr != nil {
+		return dErr
+	}
+	_, errExec = cn.Exec(string(d))
+	if errExec != nil {
+		fmt.Println("Data")
+	}
 	return errExec
 }
