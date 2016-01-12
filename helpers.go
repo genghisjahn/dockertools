@@ -82,12 +82,10 @@ func shutdown() error {
 	var err error
 	err = docker.StopContainer(db.ContainerName, false)
 	if err != nil {
-		fmt.Println("STOP***")
 		return err
 	}
 	err = docker.RemoveContainer(db.ContainerName, false)
 	if err != nil {
-		fmt.Println("REmove***")
 		return err
 	}
 	return nil
