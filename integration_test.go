@@ -33,12 +33,14 @@ func TestMain(m *testing.M) {
 	var code int
 	if errSetup == nil {
 		code = m.Run()
-	}
-	if !*persistDB && !keepDB {
-		errShutdown := shutdown()
-		if errShutdown != nil {
-			log.Println(errShutdown)
+		if !*persistDB && !keepDB {
+			errShutdown := shutdown()
+			if errShutdown != nil {
+				log.Println(errShutdown)
+			}
 		}
+	} else {
+		log.Println(errSetup)
 	}
 	os.Exit(code)
 }
