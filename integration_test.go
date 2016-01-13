@@ -19,8 +19,8 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	persistDB := flag.Bool("persistdb", false, "True, leave the DB container running")
-	killDB := flag.Bool("killdb", false, "True, kill the DB Container and return.  No tests are run.")
+	persistDB := flag.Bool("persist", false, "True, leave the DB container running")
+	killDB := flag.Bool("kill", false, "True, kill the DB Container and return.  No tests are run.")
 	flag.Parse()
 	if *killDB {
 		log.Println("Shutting down container...")
@@ -84,7 +84,7 @@ func createDB(newdbname string) error {
 	if errDrop != nil {
 		return errDrop
 	}
-	//Make a copy of the test database from the origin_db
+	//Make a copy of the test database from the origin_db`
 	_, errExec := cn.Exec(createstatment)
 	return errExec
 }
