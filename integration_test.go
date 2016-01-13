@@ -9,6 +9,28 @@ import (
 	"testing"
 )
 
+func TestMain(m *testing.M) {
+	persistDB := flag.Bool("persistdb", false, "True, leave the DB container running")
+	flag.Parse()
+	keepDB, errSetup := setup()
+	if errSetup != nil {
+		log.Println("Setup Error:", errSetup)
+	}
+	var code int
+	if errSetup == nil {
+		code = m.Run()
+		if !*persistDB && !keepDB {
+			errShutdown := shutdown()
+			if errShutdown != nil {
+				log.Println(errShutdown)
+			}
+		}
+	} else {
+		log.Println(errSetup)
+	}
+	os.Exit(code)
+}
+
 func TestInsertMovie(t *testing.T) {
 	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, db.DBName)
 	cn, _ := sql.Open("postgres", constr)
@@ -96,26 +118,4 @@ func TestCheckHarrisonFord(t *testing.T) {
 	if string(result) != expected {
 		t.Errorf("Expected %s\nReceived: %s\n", expected, result)
 	}
-}
-
-func TestMain(m *testing.M) {
-	persistDB := flag.Bool("persistdb", false, "True, leave the DB container running")
-	flag.Parse()
-	keepDB, errSetup := setup()
-	if errSetup != nil {
-		log.Println("Setup Error:", errSetup)
-	}
-	var code int
-	if errSetup == nil {
-		code = m.Run()
-		if !*persistDB && !keepDB {
-			errShutdown := shutdown()
-			if errShutdown != nil {
-				log.Println(errShutdown)
-			}
-		}
-	} else {
-		log.Println(errSetup)
-	}
-	os.Exit(code)
 }

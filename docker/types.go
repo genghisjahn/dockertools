@@ -14,6 +14,9 @@ func NewContainerNotFound(name string) *ContainerNotFoundError {
 	return &ContainerNotFoundError{fmt.Sprintf("Container %s does not exist", name)}
 }
 
+//Made with http://json2struct.mervine.net/
+
+//ContainerInfo : struct that holds data for a Docker Container
 type ContainerInfo struct {
 	AppArmorProfile string        `json:"AppArmorProfile"`
 	Args            []interface{} `json:"Args"`
