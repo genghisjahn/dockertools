@@ -9,15 +9,45 @@ import (
 	"testing"
 )
 
+var db *DBInfo
+
+var testDBName string
+
 func TestMain(m *testing.M) {
-	persistDB := flag.Bool("persistdb", false, "True, leave the DB container running")
+	var err error
+	db, err = getConnectInfo()
+	if err != nil {
+		log.Fatal(err)
+	}
+	persistDB := flag.Bool("persist", false, "True, leave the DB container running")
+	killDB := flag.Bool("kill", false, "True, kill the DB Container and return.  No tests are run.")
 	flag.Parse()
+	if *killDB {
+		log.Println("Shutting down container...")
+		errShutdown := shutdown()
+		if errShutdown != nil {
+			log.Println(errShutdown)
+		}
+		log.Println("Shutdown complete.")
+		return
+	}
 	keepDB, errSetup := setup()
 	if errSetup != nil {
 		log.Println("Setup Error:", errSetup)
 	}
 	var code int
 	if errSetup == nil {
+		testDB, errTest := getConnectInfo()
+		if errTest != nil {
+			log.Println(errTest)
+			return
+		}
+		testDBName = fmt.Sprintf("%s_test", testDB.DBName)
+		errCreate := createDB(testDBName)
+		if errCreate != nil {
+			log.Println(errCreate)
+			return
+		}
 		code = m.Run()
 		if !*persistDB && !keepDB {
 			errShutdown := shutdown()
@@ -31,8 +61,36 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestInsertMovie(t *testing.T) {
+func createDB(newdbname string) error {
+	killconnstmt := fmt.Sprintf(`SELECT pg_terminate_backend(pg_stat_activity.pid)
+										FROM pg_stat_activity
+										WHERE (datname = current_database() or datname = '%s')
+  									AND pid <> pg_backend_pid();`, newdbname)
+	dropstmt := fmt.Sprintf("DROP DATABASE IF EXISTS %s;", newdbname)
 	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, db.DBName)
+	cn, _ := sql.Open("postgres", constr)
+	defer cn.Close()
+	createtemplate := "CREATE DATABASE %s WITH TEMPLATE %s OWNER %s;"
+	createstatment := fmt.Sprintf(createtemplate, newdbname, db.DBName, db.UserName)
+
+	//Kill the connections so we can drop/copy the DB
+	_, errKillCn := cn.Exec(killconnstmt)
+	if errKillCn != nil {
+		return errKillCn
+	}
+
+	//Drop the test database if it already exists, we don't want it anymore.
+	_, errDrop := cn.Exec(dropstmt)
+	if errDrop != nil {
+		return errDrop
+	}
+	//Make a copy of the test database from the origin_db`
+	_, errExec := cn.Exec(createstatment)
+	return errExec
+}
+
+func TestInsertMovie(t *testing.T) {
+	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, testDBName)
 	cn, _ := sql.Open("postgres", constr)
 	defer cn.Close()
 	insertMovie := "insert into movie (title) values ('Raiders of the Lost Ark');"
@@ -44,7 +102,7 @@ func TestInsertMovie(t *testing.T) {
 }
 
 func TestInsertActor(t *testing.T) {
-	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, db.DBName)
+	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, testDBName)
 	cn, _ := sql.Open("postgres", constr)
 	defer cn.Close()
 	insertActor := "insert into actor (name) values ('Karen Allen');"
@@ -55,7 +113,7 @@ func TestInsertActor(t *testing.T) {
 }
 
 func TestAddActorToMovie(t *testing.T) {
-	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, db.DBName)
+	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, testDBName)
 	cn, _ := sql.Open("postgres", constr)
 	defer cn.Close()
 	insertMovieActor := `insert into movieactor (movie_id,actor_id) values (4,5);
@@ -68,7 +126,7 @@ func TestAddActorToMovie(t *testing.T) {
 }
 
 func TestCheckRaiders(t *testing.T) {
-	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, db.DBName)
+	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, testDBName)
 	cn, _ := sql.Open("postgres", constr)
 	defer cn.Close()
 	queryRaiders := "select a.name from actor a, movieactor ma where ma.movie_id = 4 and ma.actor_id = a.id;"
@@ -95,7 +153,7 @@ func TestCheckRaiders(t *testing.T) {
 }
 
 func TestCheckHarrisonFord(t *testing.T) {
-	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, db.DBName)
+	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, testDBName)
 	cn, _ := sql.Open("postgres", constr)
 	defer cn.Close()
 	queryFord := "select m.title from movie m, movieactor ma where ma.movie_id = m.id and ma.actor_id = 1;"
@@ -117,5 +175,31 @@ func TestCheckHarrisonFord(t *testing.T) {
 	result := fmt.Sprintf("%v", movies)
 	if string(result) != expected {
 		t.Errorf("Expected %s\nReceived: %s\n", expected, result)
+	}
+}
+
+func TestInsertActorA(t *testing.T) {
+	dbname := "testa"
+	createDB(dbname)
+	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, dbname)
+	cn, _ := sql.Open("postgres", constr)
+	defer cn.Close()
+	insertActor := "insert into actor (name) values ('Clint Eastwood');"
+	_, errExec := cn.Exec(insertActor)
+	if errExec != nil {
+		t.Error(errExec)
+	}
+}
+
+func TestInsertActorB(t *testing.T) {
+	dbname := "testb"
+	createDB(dbname)
+	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, dbname)
+	cn, _ := sql.Open("postgres", constr)
+	defer cn.Close()
+	insertActor := "insert into actor (name) values ('Morgan Freeman');"
+	_, errExec := cn.Exec(insertActor)
+	if errExec != nil {
+		t.Error(errExec)
 	}
 }

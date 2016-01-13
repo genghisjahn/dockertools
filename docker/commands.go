@@ -30,7 +30,13 @@ func run(cmdname string, args string, showoutput bool) error {
 
 //StopContainer takes the name of a docker container and stops it, or returns an error.
 func StopContainer(name string, showoutput bool) error {
-	return run("stop", name, showoutput)
+	var err = run("stop", name, showoutput)
+	if err != nil {
+		if strings.Contains(err.Error(), fmt.Sprintf("Error response from daemon: no such id: %s", name)) {
+			err = NewContainerNotFound(name)
+		}
+	}
+	return err
 }
 
 //InspectContainer takes in the name of a container and returns a ContainerInfo instance with data about the container.
@@ -53,7 +59,13 @@ func InspectContainer(name string) (ContainerInfo, error) {
 
 //RemoveContainer takes the name of a docker container and stop it or returns an error.
 func RemoveContainer(name string, showoutput bool) error {
-	return run("rm", name, showoutput)
+	var err = run("rm", name, showoutput)
+	if err != nil {
+		if strings.Contains(err.Error(), fmt.Sprintf("Error response from daemon: no such id: %s", name)) {
+			err = NewContainerNotFound(name)
+		}
+	}
+	return err
 }
 
 //Run accepts argurments for docker run, runs the command and returns the first line of stdout, or an error
