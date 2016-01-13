@@ -62,10 +62,10 @@ func TestMain(m *testing.M) {
 }
 
 func createDB(newdbname string) error {
-	killconnstmt := `SELECT pg_terminate_backend(pg_stat_activity.pid)
+	killconnstmt := fmt.Sprintf(`SELECT pg_terminate_backend(pg_stat_activity.pid)
 										FROM pg_stat_activity
-										WHERE datname = current_database()
-  									AND pid <> pg_backend_pid();`
+										WHERE (datname = current_database() or datname = '%s')
+  									AND pid <> pg_backend_pid();`, newdbname)
 	dropstmt := fmt.Sprintf("DROP DATABASE IF EXISTS %s;", newdbname)
 	constr := fmt.Sprintf("host=%v user=%v password=%v dbname=%v sslmode=disable", db.Host, db.UserName, db.Password, db.DBName)
 	cn, _ := sql.Open("postgres", constr)
