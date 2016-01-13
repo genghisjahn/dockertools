@@ -9,15 +9,24 @@ import (
 	"testing"
 )
 
+var db *DBInfo
+
 func TestMain(m *testing.M) {
+	var err error
+	db, err = getConnectInfo()
+	if err != nil {
+		log.Fatal(err)
+	}
 	persistDB := flag.Bool("persistdb", false, "True, leave the DB container running")
 	killDB := flag.Bool("killdb", false, "True, kill the DB Container and return.  No tests are run.")
 	flag.Parse()
 	if *killDB {
+		log.Println("Shutting down container...")
 		errShutdown := shutdown()
 		if errShutdown != nil {
 			log.Println(errShutdown)
 		}
+		log.Println("Shutdown complete.")
 		return
 	}
 	keepDB, errSetup := setup()

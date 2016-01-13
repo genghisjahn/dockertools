@@ -21,7 +21,7 @@ type DBInfo struct {
 	Password      string `json:"password"`
 }
 
-var db *DBInfo
+//var db *DBInfo
 
 func getDBConn(info DBInfo) (*sql.DB, error) {
 	return sql.Open("postgres", fmt.Sprintf("host=%s user=%s dbname=%s password=%s sslmode=disable", info.Host, info.UserName, info.DBName, info.Password))
@@ -47,7 +47,7 @@ func getConnectInfo() (*DBInfo, error) {
 }
 
 func setup() (bool, error) {
-
+	var db *DBInfo
 	var err error
 
 	db, err = getConnectInfo()
@@ -74,7 +74,10 @@ func setup() (bool, error) {
 }
 
 func setupDBContainer() error {
-
+	db, err := getConnectInfo()
+	if err != nil {
+		return err
+	}
 	argtemplate := "-p 5432:5432  --name %s  -e POSTGRES_PASSWORD=%s -e POSTGRES_DB=%s -e POSTGRES_USER=%s -d postgres"
 	//sourceDB := fmt.Sprintf("%s_origin", db.DBName)
 	runargs := fmt.Sprintf(argtemplate, db.ContainerName, db.Password, db.DBName, db.UserName)
@@ -87,16 +90,23 @@ func setupDBContainer() error {
 
 func shutdown() error {
 	var err error
+	var db *DBInfo
 	db, err = getConnectInfo()
 	if err != nil {
 		return err
 	}
 	err = docker.StopContainer(db.ContainerName, false)
 	if err != nil {
+		if _, ok := err.(*docker.ContainerNotFoundError); ok {
+			log.Printf("Error stoping %s. Container cannot be found.\n", db.ContainerName)
+		}
 		return err
 	}
 	err = docker.RemoveContainer(db.ContainerName, false)
 	if err != nil {
+		if _, ok := err.(*docker.ContainerNotFoundError); ok {
+			log.Printf("Error removing %s. Container cannot be found.\n", db.ContainerName)
+		}
 		return err
 	}
 	return nil
