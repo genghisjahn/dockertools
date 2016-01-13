@@ -11,7 +11,15 @@ import (
 
 func TestMain(m *testing.M) {
 	persistDB := flag.Bool("persistdb", false, "True, leave the DB container running")
+	killDB := flag.Bool("killdb", false, "True, kill the DB Container and return.  No tests are run.")
 	flag.Parse()
+	if *killDB {
+		errShutdown := shutdown()
+		if errShutdown != nil {
+			log.Println(errShutdown)
+		}
+		return
+	}
 	keepDB, errSetup := setup()
 	if errSetup != nil {
 		log.Println("Setup Error:", errSetup)

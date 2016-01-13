@@ -21,30 +21,36 @@ type DBInfo struct {
 	Password      string `json:"password"`
 }
 
-var db DBInfo
+var db *DBInfo
 
 func getDBConn(info DBInfo) (*sql.DB, error) {
 	return sql.Open("postgres", fmt.Sprintf("host=%s user=%s dbname=%s password=%s sslmode=disable", info.Host, info.UserName, info.DBName, info.Password))
 }
 
-func setup() (bool, error) {
-
+func getConnectInfo() (*DBInfo, error) {
+	d := &DBInfo{}
 	c, cErr := ioutil.ReadFile("data/connect.json")
 	if cErr != nil {
-		return false, cErr
+		return nil, cErr
 	}
-	jErr := json.Unmarshal(c, &db)
+	jErr := json.Unmarshal(c, &d)
 	if jErr != nil {
-		return false, jErr
+		return nil, jErr
 	}
 
-	hostip, ipErr := docker.GetHostIP(db.DockerMachine)
+	hostip, ipErr := docker.GetHostIP(d.DockerMachine)
 	if ipErr != nil {
-		return false, ipErr
+		return nil, ipErr
 	}
-	db.Host = hostip
+	d.Host = hostip
+	return d, nil
+}
+
+func setup() (bool, error) {
 
 	var err error
+
+	db, err = getConnectInfo()
 
 	info, infoErr := docker.InspectContainer(db.ContainerName)
 	if infoErr != nil {
@@ -60,7 +66,7 @@ func setup() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = initData(db)
+	err = initData(*db)
 	if err != nil {
 		return false, err
 	}
@@ -70,6 +76,7 @@ func setup() (bool, error) {
 func setupDBContainer() error {
 
 	argtemplate := "-p 5432:5432  --name %s  -e POSTGRES_PASSWORD=%s -e POSTGRES_DB=%s -e POSTGRES_USER=%s -d postgres"
+	//sourceDB := fmt.Sprintf("%s_origin", db.DBName)
 	runargs := fmt.Sprintf(argtemplate, db.ContainerName, db.Password, db.DBName, db.UserName)
 	runErr := docker.Run(runargs, false)
 	if runErr != nil {
@@ -80,6 +87,10 @@ func setupDBContainer() error {
 
 func shutdown() error {
 	var err error
+	db, err = getConnectInfo()
+	if err != nil {
+		return err
+	}
 	err = docker.StopContainer(db.ContainerName, false)
 	if err != nil {
 		return err
