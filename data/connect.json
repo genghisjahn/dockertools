@@ -1,7 +1,7 @@
 {
    "docker_machine":"dev",
    "container_name":"democontainer",
-   "db_name":"dockerdemo",
+   "db_name":"demo_origin",
    "user_name":"demo",
    "password":"abcd1234"
 }

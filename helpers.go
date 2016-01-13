@@ -79,7 +79,6 @@ func setupDBContainer() error {
 		return err
 	}
 	argtemplate := "-p 5432:5432  --name %s  -e POSTGRES_PASSWORD=%s -e POSTGRES_DB=%s -e POSTGRES_USER=%s -d postgres"
-	//sourceDB := fmt.Sprintf("%s_origin", db.DBName)
 	runargs := fmt.Sprintf(argtemplate, db.ContainerName, db.Password, db.DBName, db.UserName)
 	runErr := docker.Run(runargs, false)
 	if runErr != nil {
