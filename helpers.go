@@ -137,16 +137,13 @@ func initData(db DBInfo) error {
 	}
 	_, errExec = cn.Exec(string(s))
 	if errExec != nil {
-		fmt.Println("Schema")
 		return errExec
 	}
 	d, dErr := ioutil.ReadFile("data/data.sql")
 	if dErr != nil {
 		return dErr
 	}
+	//TODO what happens if data doesn't match schema?
 	_, errExec = cn.Exec(string(d))
-	if errExec != nil {
-		fmt.Println("Data")
-	}
 	return errExec
 }
